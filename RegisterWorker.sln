@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RegisterWorkerTests", "src\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RegisterWorker", "src\Worker\RegisterWorker.csproj", "{2EABCCAE-1825-6CAF-6F80-BEB2A33ADDAF}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MicroservicesLogger", "src\Infrastructure\LogManager\MicroservicesLogger.csproj", "{21CC4135-AD72-B163-557E-3C7957BA4589}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{2EABCCAE-1825-6CAF-6F80-BEB2A33ADDAF}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{2EABCCAE-1825-6CAF-6F80-BEB2A33ADDAF}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{2EABCCAE-1825-6CAF-6F80-BEB2A33ADDAF}.Release|Any CPU.Build.0 = Release|Any CPU
+		{21CC4135-AD72-B163-557E-3C7957BA4589}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{21CC4135-AD72-B163-557E-3C7957BA4589}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{21CC4135-AD72-B163-557E-3C7957BA4589}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{21CC4135-AD72-B163-557E-3C7957BA4589}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
