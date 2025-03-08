@@ -8,6 +8,15 @@ namespace Domain.Entities
     /// </summary>
     public class User
     {
+        public User(UserQueueRegister userQueueRegister)
+        {
+            Name = userQueueRegister.Name!;
+            Email = userQueueRegister.Email;
+            Username = userQueueRegister.Username;
+            LastName = userQueueRegister.LastName!;
+            PasswordHash = userQueueRegister.Password;
+        }
+
         [BsonId]
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; }

@@ -18,8 +18,13 @@ namespace MicroservicesLogger
             _logs = new ConcurrentDictionary<string, Tlog>();
         }
 
-        public Task<Tlog> CreateBaseLogAsync() =>
-            Task.FromResult((Tlog)Activator.CreateInstance(typeof(Tlog))!)!;
+        public Task<Tlog> CreateBaseLogAsync() 
+        {
+            Tlog newLog = (Tlog)Activator.CreateInstance(typeof(Tlog))!;
+            _logs.TryAdd(newLog.Id, newLog);
+
+            return Task.FromResult(newLog)!;
+        }
 
         public Task<Tlog> GetBaseLogAsync(string name)
         {

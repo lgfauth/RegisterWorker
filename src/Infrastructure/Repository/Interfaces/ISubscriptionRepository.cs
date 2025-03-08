@@ -1,9 +1,10 @@
 ﻿using Domain.Entities;
+using Domain.Models.Envelope;
 
 namespace Repository.Interfaces
 {
     public interface ISubscriptionRepository
     {
-        Task<User?> InsertNewUserAsync(User user, string logId);
+        Task<IResponse<bool>> InsertNewUserAsync(User user);
     }
 }
