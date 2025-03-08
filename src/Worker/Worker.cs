@@ -16,8 +16,7 @@ namespace RegisterWorker
     public class Worker : BackgroundService
     {
         private const string _typeRegister = "REGISTER";
-        private const int _retryDelayMs = 15000;
-        private const int _retryMaxCount = 20;
+        private const int prefetchCount = 3;
 
         private readonly IChannel _channel;
         private readonly IConnection _connection;
@@ -52,103 +51,90 @@ namespace RegisterWorker
                 queue: _variables.RABBITMQCONFIGURATION_QUEUENAME
             );
 
-            _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 3, global: false);
-
-            //// Fila de retry com TTL e redirecionamento
-            //var retryQueueArgs = new Dictionary<string, object>
-            //{
-            //    { "x-message-ttl", _retryDelayMs }, // Tempo que a mensagem fica na fila antes de ser reencaminhada
-            //    { "x-dead-letter-exchange", "" },   // Enviar de volta para o exchange padrão
-            //    { "x-dead-letter-routing-key", _variables.RABBITMQCONFIGURATION_QUEUENAME } // Redirecionar para a fila principal após o delay
-            //};
-
-            //_channel.QueueDeclareAsync(queue: _variables.RABBITMQCONFIGURATION_QUEUENAME, durable: true, exclusive: false, autoDelete: false, arguments: retryQueueArgs!);
+            _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: prefetchCount, global: false);
         }
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            var consumer = new AsyncEventingBasicConsumer(_channel);
 
-            while (!stoppingToken.IsCancellationRequested)
+            consumer.ReceivedAsync += async (model, ea) =>
             {
-                var consumer = new AsyncEventingBasicConsumer(_channel);
+                var baselog = await _logger.CreateBaseLogAsync();
+                var sublog = new SubLog();
+                var logType = LogTypes.INFO;
 
-                consumer.ReceivedAsync += async (model, ea) =>
+                await baselog.AddStepAsync("CONSUME_REGISTER_MESSAGE", sublog);
+
+                try
                 {
-                    var baselog = await _logger.CreateBaseLogAsync();
-                    var sublog = new SubLog();
-                    var logType = LogTypes.INFO;
+                    var body = ea.Body.ToArray();
+                    var message = Encoding.UTF8.GetString(body);
 
-                    await baselog.AddStepAsync("CONSUME_REGISTER_MESSAGE", sublog);
-
-                    try
+                    if (string.IsNullOrEmpty(message))
                     {
-                        var body = ea.Body.ToArray();
-                        var message = Encoding.UTF8.GetString(body);
+                        baselog.Response = "Received message is null.";
+                        logType = LogTypes.WARN;
 
-                        if (message is null)
-                        {
-                            baselog.Response = "Received message is null.";
-                            logType = LogTypes.WARN;
-
-                            await _channel.AbortAsync();
-                        }
-
-                        baselog.Request = message;
-
-                        UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message!)!;
-                        IResponse<bool> response = null!;
-
-                        if (userQueueRegister.Type!.Equals(_typeRegister))
-                            response = await _subscriptionService.ProcessSubscription(userQueueRegister, baselog.Id);
-                        else
-                            response = await _unsubscriptionService.ProcessUnsubscription(userQueueRegister, baselog.Id);
-
-                        if (!response.IsSuccess)
-                        {
-                            baselog.Response = response.Error;
-                            logType = LogTypes.WARN;
-
-                            await _channel.BasicNackAsync(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
-
-                            await _channel.BasicPublishAsync(
-                                exchange: "",
-                                routingKey: _variables.RABBITMQCONFIGURATION_QUEUENAME,
-                                body: ea.Body.ToArray(),
-                                stoppingToken
-                            );
-                        }
-
-                        baselog.Response = "Success";
-
-                        // Confirm the process of received message
-                        await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false);
+                        return;
                     }
-                    catch (Exception ex)
+
+                    baselog.Request = message;
+
+                    UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message!)!;
+                    IResponse<bool> response;
+
+                    if (userQueueRegister.Type!.Equals(_typeRegister))
+                        response = await _subscriptionService.ProcessSubscription(userQueueRegister, baselog.Id);
+                    else
+                        response = await _unsubscriptionService.ProcessUnsubscription(userQueueRegister, baselog.Id);
+
+                    if (!response.IsSuccess)
                     {
-                        sublog.Exception = ex;
-                        logType = LogTypes.ERROR;
+                        baselog.Response = response.Error;
+                        logType = LogTypes.WARN;
 
-                        await _channel.BasicNackAsync(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
+                        await RetryMessageAsync(ea, stoppingToken); 
 
-                        await _channel.BasicPublishAsync(
-                                exchange: "",
-                                routingKey: _variables.RABBITMQCONFIGURATION_QUEUENAME,
-                                body: ea.Body.ToArray(),
-                                stoppingToken
-                            );
+                        return;
                     }
-                    finally
-                    {
-                        await _logger.WriteLogAsync(logType, baselog);
-                    }
-                };
 
-                await _channel.BasicConsumeAsync(
-                    consumer: consumer,
-                    autoAck: false,
-                    queue: _variables.RABBITMQCONFIGURATION_QUEUENAME
-                );
-            }
+                    baselog.Response = "Success";
+
+                    await _channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false);
+                }
+                catch (Exception ex)
+                {
+                    sublog.Exception = ex;
+                    logType = LogTypes.ERROR;
+
+                    await RetryMessageAsync(ea, stoppingToken);
+                }
+                finally
+                {
+                    await _logger.WriteLogAsync(logType, baselog);
+                }
+            };
+
+            await _channel.BasicConsumeAsync(
+                consumer: consumer,
+                autoAck: false,
+                queue: _variables.RABBITMQCONFIGURATION_QUEUENAME
+            );
+
+            await Task.Delay(Timeout.Infinite, stoppingToken);
+        }
+
+        private async Task RetryMessageAsync(BasicDeliverEventArgs ea, CancellationToken stoppingToken)
+        {
+            await _channel.BasicNackAsync(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
+
+            await _channel.BasicPublishAsync(
+                exchange: "",
+                routingKey: _variables.RABBITMQCONFIGURATION_QUEUENAME,
+                body: ea.Body.ToArray(),
+                stoppingToken
+            );
         }
 
         public override void Dispose()
