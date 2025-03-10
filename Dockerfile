@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/dotnet/runtime:6.0 AS base
+FROM mcr.microsoft.com/dotnet/aspnet:6.0 AS base
 WORKDIR /app
 
 # Esta fase é usada para compilar o projeto de serviço
