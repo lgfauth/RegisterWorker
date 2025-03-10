@@ -11,7 +11,7 @@ RUN dotnet restore "Worker/RegisterWorker.csproj"
 
 COPY . .
 
-WORKDIR "/src/Worker"
+WORKDIR "/src/src/Worker"
 RUN dotnet build "RegisterWorker.csproj" -c $BUILD_CONFIGURATION -o /app/build
 
 # Esta fase é usada para publicar o projeto de serviço a ser copiado para a fase final
