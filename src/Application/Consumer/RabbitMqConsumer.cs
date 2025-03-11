@@ -24,21 +24,12 @@ namespace Application.Consumer
         private readonly IUnsubscriptionService _unsubscriptionService;
         private readonly IRabbitMqConnectionManager _connectionManager;
 
-        /// <summary>
-        /// 
-        /// </summary>
-        /// <param name="channel"></param>
-        /// <param name="subscriptionService"></param>
-        /// <param name="unsubscriptionService"></param>
-        /// <param name="logger"></param>
-        /// <param name="variables"></param>
         public RabbitMqConsumer(
             ISubscriptionService subscriptionService,
             IUnsubscriptionService unsubscriptionService,
             IWorkerLog<WorkerLogModel> logger,
             EnvirolmentVariables variables,
-            IRabbitMqConnectionManager connectionManager
-        )
+            IRabbitMqConnectionManager connectionManager)
         {
             _logger = logger;
             _variables = variables;
@@ -52,13 +43,11 @@ namespace Application.Consumer
             var channel = _connectionManager.GetChannel();
             var consumer = new AsyncEventingBasicConsumer(channel);
 
+            // Configuração correta para prefetch de 3 mensagens
+            await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 3, global: false);
+
             consumer.ReceivedAsync += async (model, ea) =>
             {
-                var message = Encoding.UTF8.GetString(ea.Body.ToArray());
-                if (string.IsNullOrEmpty(message)) return;
-
-                var consumer = new AsyncEventingBasicConsumer(channel);
-
                 var baselog = await _logger.CreateBaseLogAsync();
                 var sublog = new SubLog();
                 var logType = LogTypes.INFO;
@@ -67,17 +56,18 @@ namespace Application.Consumer
 
                 try
                 {
+                    var message = Encoding.UTF8.GetString(ea.Body.ToArray());
+
                     if (string.IsNullOrEmpty(message))
                     {
                         baselog.Response = "Received message is null.";
                         logType = LogTypes.WARN;
-
+                        await channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
                         return;
                     }
 
                     baselog.Request = message;
-
-                    UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message!)!;
+                    UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message)!;
                     IResponse<bool> response;
 
                     if (userQueueRegister.Type!.Equals(_typeRegister))
@@ -89,9 +79,7 @@ namespace Application.Consumer
                     {
                         baselog.Response = response.Error;
                         logType = LogTypes.WARN;
-
                         await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
-
                         return;
                     }
 
@@ -103,24 +91,20 @@ namespace Application.Consumer
                 {
                     sublog.Exception = ex;
                     logType = LogTypes.ERROR;
-
                     await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
                 }
                 finally
                 {
                     await _logger.WriteLogAsync(logType, baselog);
                 }
-
-                await channel.BasicConsumeAsync(
-                    consumer: consumer,
-                    autoAck: false,
-                    queue: _variables.RABBITMQCONFIGURATION_QUEUENAME
-                );
-
-                await Task.Delay(Timeout.Infinite, stoppingToken);
             };
 
-            await channel.BasicConsumeAsync(_variables.RABBITMQCONFIGURATION_QUEUENAME, false, consumer);
+            await channel.BasicConsumeAsync(
+                queue: _variables.RABBITMQCONFIGURATION_QUEUENAME,
+                autoAck: false,
+                consumer: consumer);
+
+            await Task.CompletedTask;
         }
 
         private async Task RetryMessageAsync(BasicDeliverEventArgs ea, IChannel channel, string logId, CancellationToken stoppingToken)
@@ -144,26 +128,18 @@ namespace Application.Consumer
                 Persistent = true
             };
 
-            if (retryCount >= _retryCounter)
-            {
-                await channel.BasicPublishAsync(
+            var targetQueue = retryCount >= _retryCounter
+                ? _variables.RABBITMQCONFIGURATION_DLQ_QUEUENAME
+                : _variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME;
+
+            await channel.BasicPublishAsync(
                     exchange: "",
-                    routingKey: _variables.RABBITMQCONFIGURATION_DLQ_QUEUENAME,
-                    mandatory: false,
+                    mandatory: false
+                    routingKey: targetQueue,
                     body: ea.Body.ToArray(),
                     basicProperties: properties,
-                    cancellationToken: stoppingToken);
-            }
-            else
-            {
-                await channel.BasicPublishAsync(
-                    exchange: "",
-                    mandatory: false,
-                    routingKey: _variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME,
-                    body: ea.Body.ToArray(),
-                    basicProperties: properties,
-                    cancellationToken: stoppingToken);
-            }
+                    cancellationToken: stoppingToken
+                );
 
             await channel.BasicNackAsync(deliveryTag: ea.DeliveryTag, multiple: false, requeue: false);
 
