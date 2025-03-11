@@ -43,9 +43,6 @@ namespace Application.Consumer
             var channel = _connectionManager.GetChannel();
             var consumer = new AsyncEventingBasicConsumer(channel);
 
-            // Configuração correta para prefetch de 3 mensagens
-            await channel.BasicQosAsync(prefetchSize: 0, prefetchCount: 3, global: false);
-
             consumer.ReceivedAsync += async (model, ea) =>
             {
                 var baselog = await _logger.CreateBaseLogAsync();
@@ -62,12 +59,15 @@ namespace Application.Consumer
                     {
                         baselog.Response = "Received message is null.";
                         logType = LogTypes.WARN;
+
                         await channel.BasicAckAsync(ea.DeliveryTag, multiple: false);
+
                         return;
                     }
 
                     baselog.Request = message;
                     UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message)!;
+                    
                     IResponse<bool> response;
 
                     if (userQueueRegister.Type!.Equals(_typeRegister))
@@ -79,7 +79,9 @@ namespace Application.Consumer
                     {
                         baselog.Response = response.Error;
                         logType = LogTypes.WARN;
+                    
                         await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
+                        
                         return;
                     }
 
@@ -91,6 +93,7 @@ namespace Application.Consumer
                 {
                     sublog.Exception = ex;
                     logType = LogTypes.ERROR;
+
                     await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
                 }
                 finally
@@ -134,7 +137,7 @@ namespace Application.Consumer
 
             await channel.BasicPublishAsync(
                     exchange: "",
-                    mandatory: false
+                    mandatory: false,
                     routingKey: targetQueue,
                     body: ea.Body.ToArray(),
                     basicProperties: properties,
