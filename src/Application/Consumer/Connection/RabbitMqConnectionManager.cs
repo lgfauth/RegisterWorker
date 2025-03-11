@@ -34,35 +34,58 @@ namespace Application.Consumer.Connection
             _connection = await factory.CreateConnectionAsync();
             _channel = await _connection.CreateChannelAsync();
 
-            await _channel.QueueDeclareAsync(
-                queue: _variables.RABBITMQCONFIGURATION_QUEUENAME,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: new Dictionary<string, object>
-                {
-                    { "x-dead-letter-exchange", "" },
-                    { "x-dead-letter-routing-key", _variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME }
-                }!);
+            try
+            {
+                await _channel.QueueDeclarePassiveAsync(_variables.RABBITMQCONFIGURATION_QUEUENAME);
+            }
+            catch
+            {
+                await _channel.QueueDeclareAsync(
+                    queue: _variables.RABBITMQCONFIGURATION_QUEUENAME,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: new Dictionary<string, object>
+                    {
+                        { "x-dead-letter-exchange", "" },
+                        { "x-dead-letter-routing-key", _variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME }
+                    }!
+                );
+            }
 
-            await _channel.QueueDeclareAsync(
-                queue: _variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME,
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: new Dictionary<string, object>
-                {
-                    { "x-dead-letter-exchange", "" },
-                    { "x-message-ttl", (long)TimeSpan.FromMinutes(15).TotalMilliseconds },
-                    { "x-dead-letter-routing-key", _variables.RABBITMQCONFIGURATION_DLQ_QUEUENAME }
-                }!);
+            try
+            {
+                await _channel.QueueDeclarePassiveAsync(_variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME);
+            }
+            catch
+            {
+                await _channel.QueueDeclareAsync(
+                    queue: _variables.RABBITMQCONFIGURATION_RETRY_QUEUENAME,
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: new Dictionary<string, object>
+                    {
+                        { "x-dead-letter-exchange", "" },
+                        { "x-message-ttl", (long)TimeSpan.FromMinutes(15).TotalMilliseconds },
+                        { "x-dead-letter-routing-key", _variables.RABBITMQCONFIGURATION_DLQ_QUEUENAME }
+                    }!
+                );
+            }
 
-            await _channel.QueueDeclareAsync(
+            try
+            {
+                await _channel.QueueDeclarePassiveAsync(_variables.RABBITMQCONFIGURATION_DLQ_QUEUENAME);
+            }
+            catch
+            {
+                await _channel.QueueDeclareAsync(
                 queue: _variables.RABBITMQCONFIGURATION_DLQ_QUEUENAME,
                 durable: true,
                 exclusive: false,
                 autoDelete: false,
                 arguments: null);
+            }
 
             await _channel.BasicQosAsync(prefetchSize: 0, prefetchCount: _prefetchCount, global: false);
         }
