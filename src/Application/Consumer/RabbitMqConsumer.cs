@@ -59,63 +59,57 @@ namespace Application.Consumer
 
                 var consumer = new AsyncEventingBasicConsumer(channel);
 
-                consumer.ReceivedAsync += async (model, ea) =>
+                var baselog = await _logger.CreateBaseLogAsync();
+                var sublog = new SubLog();
+                var logType = LogTypes.INFO;
+
+                await baselog.AddStepAsync("CONSUME_REGISTER_MESSAGE", sublog);
+
+                try
                 {
-                    var baselog = await _logger.CreateBaseLogAsync();
-                    var sublog = new SubLog();
-                    var logType = LogTypes.INFO;
-
-                    await baselog.AddStepAsync("CONSUME_REGISTER_MESSAGE", sublog);
-
-                    try
+                    if (string.IsNullOrEmpty(message))
                     {
-                        var body = ea.Body.ToArray();
-                        var message = Encoding.UTF8.GetString(body);
+                        baselog.Response = "Received message is null.";
+                        logType = LogTypes.WARN;
 
-                        if (string.IsNullOrEmpty(message))
-                        {
-                            baselog.Response = "Received message is null.";
-                            logType = LogTypes.WARN;
-
-                            return;
-                        }
-
-                        baselog.Request = message;
-
-                        UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message!)!;
-                        IResponse<bool> response;
-
-                        if (userQueueRegister.Type!.Equals(_typeRegister))
-                            response = await _subscriptionService.ProcessSubscription(userQueueRegister, baselog.Id);
-                        else
-                            response = await _unsubscriptionService.ProcessUnsubscription(userQueueRegister, baselog.Id);
-
-                        if (!response.IsSuccess)
-                        {
-                            baselog.Response = response.Error;
-                            logType = LogTypes.WARN;
-
-                            await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
-
-                            return;
-                        }
-
-                        baselog.Response = "Success";
-
-                        await channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false);
+                        return;
                     }
-                    catch (Exception ex)
+
+                    baselog.Request = message;
+
+                    UserQueueRegister userQueueRegister = JsonConvert.DeserializeObject<UserQueueRegister>(message!)!;
+                    IResponse<bool> response;
+
+                    if (userQueueRegister.Type!.Equals(_typeRegister))
+                        response = await _subscriptionService.ProcessSubscription(userQueueRegister, baselog.Id);
+                    else
+                        response = await _unsubscriptionService.ProcessUnsubscription(userQueueRegister, baselog.Id);
+
+                    if (!response.IsSuccess)
                     {
-                        sublog.Exception = ex;
-                        logType = LogTypes.ERROR;
+                        baselog.Response = response.Error;
+                        logType = LogTypes.WARN;
 
                         await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
+
+                        return;
                     }
-                    finally
-                    {
-                        await _logger.WriteLogAsync(logType, baselog);
-                    }
-                };
+
+                    baselog.Response = "Success";
+
+                    await channel.BasicAckAsync(deliveryTag: ea.DeliveryTag, multiple: false);
+                }
+                catch (Exception ex)
+                {
+                    sublog.Exception = ex;
+                    logType = LogTypes.ERROR;
+
+                    await RetryMessageAsync(ea, channel, baselog.Id, stoppingToken);
+                }
+                finally
+                {
+                    await _logger.WriteLogAsync(logType, baselog);
+                }
 
                 await channel.BasicConsumeAsync(
                     consumer: consumer,
