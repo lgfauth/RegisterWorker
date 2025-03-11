@@ -8,15 +8,12 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="6.0.0" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.1.1" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\Infrastructure\LogManager\MicroservicesLogger.csproj" />
     <ProjectReference Include="..\Infrastructure\Repository\Repository.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Fatory\" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,6 @@
-﻿using Application.Interfaces;
+﻿using Application.Consumer.Connection;
+using Application.Consumer;
+using Application.Interfaces;
 using Application.Services;
 using Domain.Models;
 using MicroservicesLogger;
@@ -24,8 +26,13 @@ namespace Application.Injections
             services.AddSingleton<ISubscriptionRepository, SubscriptionRepository>();
             services.AddSingleton<IUnsubscriptionRepository, UnsubscriptionRepository>();
 
+            services.AddSingleton<IRabbitMqConsumer, RabbitMqConsumer>();
+
+            services.AddSingleton<IRabbitMqConnectionManager, RabbitMqConnectionManager>();
+
             services.AddSingleton<ISubscriptionService, SubscriptionService>();
             services.AddSingleton<IUnsubscriptionService, UnsubscriptionService>();
+
         }
     }
 }
