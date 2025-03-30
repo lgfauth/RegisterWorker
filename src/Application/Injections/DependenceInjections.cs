@@ -32,7 +32,8 @@ namespace Application.Injections
 
             services.AddSingleton<ISubscriptionService, SubscriptionService>();
             services.AddSingleton<IUnsubscriptionService, UnsubscriptionService>();
-            
+
+            services.AddDataProtection();
             services.AddTransient<IEmailSender, EmailSender>();
         }
     }
