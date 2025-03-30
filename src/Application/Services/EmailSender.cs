@@ -4,6 +4,7 @@ using Domain.Models;
 using Domain.Models.Envelope;
 using Domain.Settings;
 using Domain.Utils;
+using Microsoft.AspNetCore.DataProtection;
 using System.Net;
 using System.Net.Mail;
 
@@ -15,22 +16,24 @@ namespace Application.Services
 
         private readonly string _fromAddress;
         private readonly SmtpClient _smtpClient;
+        private readonly IDataProtector _protector;
 
-        public EmailSender(EnvirolmentVariables envirolment)
+        public EmailSender(EnvirolmentVariables envirolment, IDataProtector protector)
         {
-            _fromAddress = envirolment.EMAIL_FROM_ADDRESS!;
             _smtpClient = new SmtpClient(envirolment.EMAIL_SMTP_CLIENT, 587)
             {
                 Credentials = new NetworkCredential(envirolment.EMAIL_FROM_ADDRESS!, envirolment.EMAIL_FROM_PASSWORD),
                 EnableSsl = true
             };
 
+            _fromAddress = envirolment.EMAIL_FROM_ADDRESS!;
+            _protector = protector.CreateProtector(envirolment.JWTSETTINGS_ISSUER!);
             _linkConfirmation = "https://lfauthdevhub.up.railway.app/confirm-subscription/{0}";
         }
 
         public async Task<IResponse<bool>> SendConfirmationEmailAsync(UserQueueRegister userQueueRegister, string type)
         {
-            string tokenData = EncriptorAndDecriptor.TokenGenAndEncprtor(userQueueRegister.Email, userQueueRegister.Name);
+            string tokenData = EncriptorAndDecriptor.TokenGenAndEncprtor(userQueueRegister.Email, userQueueRegister.Name!, _protector);
             _linkConfirmation = string.Format(_linkConfirmation, tokenData);
 
             string body = SelectBodyByType(type, userQueueRegister.Name!);

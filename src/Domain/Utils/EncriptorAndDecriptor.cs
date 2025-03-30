@@ -1,4 +1,4 @@
-﻿using System.Security.Cryptography;
+﻿using Microsoft.AspNetCore.DataProtection;
 using System.Text;
 
 namespace Domain.Utils
@@ -10,26 +10,25 @@ namespace Domain.Utils
         /// </summary>
         /// <param name="email">Email used on registration</param>
         /// <param name="name">Name used on registration</param>
+        /// <param name="protector">IDataProtector object</param>
         /// <returns>Encripted token string</returns>
-        public static string TokenGenAndEncprtor(string email, string? name)
+        public static string TokenGenAndEncprtor(string email, string? name, IDataProtector protector)
         {
             var tokenData = $"{email}|{name}|{DateTime.UtcNow:o}";
 
-            byte[] plainBytes = Encoding.UTF8.GetBytes(tokenData);
-            byte[] encryptedBytes = ProtectedData.Protect(plainBytes, null, DataProtectionScope.LocalMachine);
-
-            return Convert.ToBase64String(encryptedBytes);
+            return protector.Protect(tokenData);
         }
 
         /// <summary>
         /// Decriptor for token data, used to confirm subscription
         /// </summary>
         /// <param name="encryptedToken">string token</param>
+        /// <param name="protector">IDataProtector object</param>
         /// <returns></returns>
-        public static string DecryptToken(string encryptedToken)
+        public static string DecryptToken(string encryptedToken, IDataProtector protector)
         {
             byte[] encryptedBytes = Convert.FromBase64String(encryptedToken);
-            byte[] decryptedBytes = ProtectedData.Unprotect(encryptedBytes, null, DataProtectionScope.LocalMachine);
+            byte[] decryptedBytes = protector.Unprotect(encryptedBytes);
 
             return Encoding.UTF8.GetString(decryptedBytes);
         }
