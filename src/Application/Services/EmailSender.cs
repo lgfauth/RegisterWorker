@@ -20,11 +20,10 @@ namespace Application.Services
 
         public EmailSender(EnvirolmentVariables envirolment, IDataProtectionProvider protector)
         {
-            Console.WriteLine(envirolment.EMAIL_SMTP_CLIENT);
             Console.WriteLine(envirolment.EMAIL_FROM_ADDRESS);
             Console.WriteLine(envirolment.EMAIL_SMTP_CLIENT);
 
-            _smtpClient = new SmtpClient(envirolment.EMAIL_SMTP_CLIENT, 587)
+            _smtpClient = new SmtpClient(envirolment.EMAIL_SMTP_CLIENT, 465)
             {
                 Credentials = new NetworkCredential(envirolment.EMAIL_FROM_ADDRESS!, envirolment.EMAIL_FROM_PASSWORD),
                 EnableSsl = true
