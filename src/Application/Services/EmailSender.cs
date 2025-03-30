@@ -15,29 +15,27 @@ namespace Application.Services
         private string _linkConfirmation;
 
         private readonly string _fromAddress;
-        private readonly SmtpClient _smtpClient;
         private readonly IDataProtector _protector;
+        private readonly string? _host;
+        private readonly string? _sender;
+        private readonly string? _phaseKey;
 
         public EmailSender(EnvirolmentVariables envirolment, IDataProtectionProvider protector)
         {
             Console.WriteLine(envirolment.EMAIL_FROM_ADDRESS);
             Console.WriteLine(envirolment.EMAIL_SMTP_CLIENT);
 
-            _smtpClient = new SmtpClient(envirolment.EMAIL_SMTP_CLIENT, 465)
-            {
-                Credentials = new NetworkCredential(envirolment.EMAIL_FROM_ADDRESS!, envirolment.EMAIL_FROM_PASSWORD),
-                EnableSsl = true
-            };
-
+            _host = envirolment.EMAIL_SMTP_CLIENT!;
+            _sender = envirolment.EMAIL_FROM_ADDRESS!;
+            _phaseKey = envirolment.EMAIL_FROM_PASSWORD!;
             _fromAddress = envirolment.EMAIL_FROM_ADDRESS!;
+
             _protector = protector.CreateProtector(envirolment.JWTSETTINGS_ISSUER!);
             _linkConfirmation = "https://lfauthdevhub.up.railway.app/confirm-subscription/{0}";
         }
 
         public async Task<IResponse<bool>> SendConfirmationEmailAsync(UserQueueRegister userQueueRegister, string type)
         {
-            Console.WriteLine(userQueueRegister.Email);
-            Console.WriteLine(userQueueRegister.Name);
 
             string tokenData = EncriptorAndDecriptor.TokenGenAndEncprtor(userQueueRegister.Email, userQueueRegister.Name!, _protector);
             _linkConfirmation = string.Format(_linkConfirmation, tokenData);
@@ -49,7 +47,15 @@ namespace Application.Services
             {
                 try
                 {
-                    await _smtpClient.SendMailAsync(mensagem);
+                    var smtpClient = new SmtpClient(_host, 587)
+                    {
+                        Credentials = new NetworkCredential(_sender, _phaseKey),
+                        EnableSsl = true,
+                        Host = _host!,
+                        DeliveryMethod = SmtpDeliveryMethod.Network
+                    };
+
+                    smtpClient.Send(mensagem);
 
                     return new ResponseOk<bool>(true);
                 }

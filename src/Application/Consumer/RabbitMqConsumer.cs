@@ -103,7 +103,7 @@ namespace Application.Consumer
             };
 
             await channel.BasicConsumeAsync(
-                queue: _variables.RABBITMQCONFIGURATION_QUEUENAME,
+                queue: _variables.RABBITMQCONFIGURATION_QUEUENAME!,
                 autoAck: false,
                 consumer: consumer);
 
