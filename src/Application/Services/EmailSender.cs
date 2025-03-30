@@ -18,7 +18,7 @@ namespace Application.Services
         private readonly SmtpClient _smtpClient;
         private readonly IDataProtector _protector;
 
-        public EmailSender(EnvirolmentVariables envirolment, IDataProtector protector)
+        public EmailSender(EnvirolmentVariables envirolment, IDataProtectionProvider protector)
         {
             _smtpClient = new SmtpClient(envirolment.EMAIL_SMTP_CLIENT, 587)
             {
