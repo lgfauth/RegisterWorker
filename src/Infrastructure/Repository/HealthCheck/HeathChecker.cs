@@ -23,10 +23,10 @@ namespace Repository.HealthCheck
                 baselog.Request = "HeathChecker Mongo DB";
                 await baselog.AddStepAsync("CHECKING_MONGODB_CONNECTION");
 
-                string mongoUser = variables.MONGODBDATA_USER;
-                string mongoPassword = variables.MONGODBDATA_PASSWORD;
-                string mongoCluster = variables.MONGODBDATA_CLUSTER;
-                string mongoDbConnectionString = variables.MONGODBSETTINGS_CONNECTIONSTRING;
+                string mongoUser = variables.MONGODBDATA_USER!;
+                string mongoPassword = variables.MONGODBDATA_PASSWORD!;
+                string mongoCluster = variables.MONGODBDATA_CLUSTER!;
+                string mongoDbConnectionString = variables.MONGODBSETTINGS_CONNECTIONSTRING!;
 
                 mongoDbConnectionString = string.Format(mongoDbConnectionString, mongoUser, Uri.EscapeDataString(mongoPassword), mongoCluster);
 

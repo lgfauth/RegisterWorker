@@ -10,12 +10,14 @@ namespace Application.Services
 {
     public class UnsubscriptionService : IUnsubscriptionService
     {
+        private readonly IEmailSender _emailSender;
         private readonly IWorkerLog<WorkerLogModel> _logger;
         private readonly IUnsubscriptionRepository _unsubscriptionRepository;
 
-        public UnsubscriptionService(IWorkerLog<WorkerLogModel> logger, IUnsubscriptionRepository unsubscriptionRepository)
+        public UnsubscriptionService(IWorkerLog<WorkerLogModel> logger, IUnsubscriptionRepository unsubscriptionRepository, IEmailSender emailSender)
         {
             _logger = logger;
+            _emailSender = emailSender;
             _unsubscriptionRepository = unsubscriptionRepository;
         }
 
@@ -30,9 +32,18 @@ namespace Application.Services
 
                 var user = new User(userQueueRegister);
 
-                var response = await _unsubscriptionRepository.DeleteUserAsync(user);
+                _ = await _unsubscriptionRepository.DeleteUserAsync(user);
 
                 sublog.StopCronometer();
+
+                var sublogEmail = new SubLog();
+                await baselog.AddStepAsync("SEND_DELETE_CONFIRMATION_EMAIL", sublogEmail);
+
+                sublogEmail.StartCronometer();
+
+                var response = await _emailSender.SendConfirmationEmailAsync(userQueueRegister, "Delete");
+
+                sublogEmail.StopCronometer();
 
                 return response;
             }

@@ -10,12 +10,14 @@ namespace Application.Services
 {
     public class SubscriptionService : ISubscriptionService
     {
+        private readonly IEmailSender _emailSender;
         private readonly IWorkerLog<WorkerLogModel> _logger;
         private readonly ISubscriptionRepository _subscriptionRepository;
 
-        public SubscriptionService(IWorkerLog<WorkerLogModel> logger, ISubscriptionRepository subscriptionRepository)
+        public SubscriptionService(IWorkerLog<WorkerLogModel> logger, ISubscriptionRepository subscriptionRepository, IEmailSender emailSender)
         {
             _logger = logger;
+            _emailSender = emailSender;
             _subscriptionRepository = subscriptionRepository;
         }
 
@@ -23,6 +25,7 @@ namespace Application.Services
         {
             var baselog = await _logger.GetBaseLogAsync(logId);
             var sublog = new SubLog();
+            await baselog.AddStepAsync("DATABASE_INSERT_NEW_USER", sublog);
 
             try
             {
@@ -30,9 +33,18 @@ namespace Application.Services
 
                 var user = new User(userQueueRegister);
 
-                var response = await _subscriptionRepository.InsertNewUserAsync(user);
+                _ = await _subscriptionRepository.InsertNewUserAsync(user);
 
                 sublog.StopCronometer();
+
+                var sublogEmail = new SubLog();
+                await baselog.AddStepAsync("SEND_CONFIRMATION_EMAIL", sublogEmail);
+
+                sublogEmail.StartCronometer();
+
+                var response = await _emailSender.SendConfirmationEmailAsync(userQueueRegister, "Register");
+                
+                sublogEmail.StopCronometer();
 
                 return response;
             }
@@ -42,10 +54,6 @@ namespace Application.Services
                 sublog.Exception = ex;
 
                 return new ResponseError<bool>(new ResponseModel { Code = "RB501", Message = ex.Message });
-            }
-            finally
-            {
-                await baselog.AddStepAsync("DATABASE_INSERT_NEW_USER", sublog);
             }
         }
     }
