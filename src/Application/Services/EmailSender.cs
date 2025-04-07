@@ -22,9 +22,6 @@ namespace Application.Services
 
         public EmailSender(EnvirolmentVariables envirolment, IDataProtectionProvider protector)
         {
-            Console.WriteLine(envirolment.EMAIL_FROM_ADDRESS);
-            Console.WriteLine(envirolment.EMAIL_SMTP_CLIENT);
-
             _host = envirolment.EMAIL_SMTP_CLIENT!;
             _sender = envirolment.EMAIL_FROM_ADDRESS!;
             _phaseKey = envirolment.EMAIL_FROM_PASSWORD!;
@@ -57,6 +54,8 @@ namespace Application.Services
                         Credentials = new NetworkCredential(_sender, _phaseKey),
                         EnableSsl = true
                     };
+
+                    mensagem.IsBodyHtml = true;
 
                     smtpClient.Send(mensagem);
 
