@@ -34,9 +34,14 @@ namespace Application.Services
             _linkConfirmation = "https://lfauthdevhub.up.railway.app/confirm-subscription/{0}";
         }
 
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="userQueueRegister"></param>
+        /// <param name="type"></param>
+        /// <returns></returns>
         public async Task<IResponse<bool>> SendConfirmationEmailAsync(UserQueueRegister userQueueRegister, string type)
         {
-
             string tokenData = EncriptorAndDecriptor.TokenGenAndEncprtor(userQueueRegister.Email, userQueueRegister.Name!, _protector);
             _linkConfirmation = string.Format(_linkConfirmation, tokenData);
 
@@ -47,12 +52,10 @@ namespace Application.Services
             {
                 try
                 {
-                    var smtpClient = new SmtpClient(_host, 587)
+                    var smtpClient = new SmtpClient(_host, 465)
                     {
                         Credentials = new NetworkCredential(_sender, _phaseKey),
-                        EnableSsl = true,
-                        Host = _host!,
-                        DeliveryMethod = SmtpDeliveryMethod.Network
+                        EnableSsl = true
                     };
 
                     smtpClient.Send(mensagem);
