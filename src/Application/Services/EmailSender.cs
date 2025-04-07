@@ -52,7 +52,7 @@ namespace Application.Services
             {
                 try
                 {
-                    var smtpClient = new SmtpClient(_host, 465)
+                    var smtpClient = new SmtpClient(_host, 587)
                     {
                         Credentials = new NetworkCredential(_sender, _phaseKey),
                         EnableSsl = true
