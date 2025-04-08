@@ -32,96 +32,136 @@ namespace Application.Services
         }
 
         /// <summary>
-        /// 
+        /// Send email to user with confirmation link
         /// </summary>
         /// <param name="userQueueRegister"></param>
-        /// <param name="type"></param>
         /// <returns></returns>
-        public async Task<IResponse<bool>> SendConfirmationEmailAsync(UserQueueRegister userQueueRegister, string type)
+        public async Task<IResponse<bool>> SendSubscriptionConfirmationEmailAsync(UserQueueRegister userQueueRegister)
         {
             string tokenData = EncriptorAndDecriptor.TokenGenAndEncprtor(userQueueRegister.Email, userQueueRegister.Name!, _protector);
+            string body = BuildEmailTemplate(userQueueRegister.Name!, _linkConfirmation, "pt");
+
             _linkConfirmation = string.Format(_linkConfirmation, tokenData);
 
-            string body = SelectBodyByType(type, userQueueRegister.Name!);
-            string title = type.Equals("Delete") ? "Account Deletion Confirmation" : "Registration Confirmation";
-
-            using (var mensagem = new MailMessage(_fromAddress, userQueueRegister.Email, $"LFauth Dev Hub | {title}", body))
+            try
             {
-                try
-                {
-                    var smtpClient = new SmtpClient(_host, 587)
-                    {
-                        Credentials = new NetworkCredential(_sender, _phaseKey),
-                        EnableSsl = true
-                    };
+                bool response = await SendEmailAsync(userQueueRegister.Email, "LFauth Dev Hub | Registration Confirmation", body);
 
-                    mensagem.IsBodyHtml = true;
-
-                    smtpClient.Send(mensagem);
-
-                    return new ResponseOk<bool>(true);
-                }
-                catch (Exception ex)
-                {
-                    return new ResponseError<bool>(new ResponseModel { Code = "ES503", Message = $"{ex.Message} | {ex.InnerException?.Message}" });
-                }
+                return new ResponseOk<bool>(response);
+            }
+            catch (Exception ex)
+            {
+                return new ResponseError<bool>(new ResponseModel { Code = "ES503", Message = $"{ex.Message} | {ex.InnerException?.Message}" });
             }
         }
 
-        private string SelectBodyByType(string type, string name)
+        /// <summary>
+        /// Send email to user for confirmation of account deletion
+        /// </summary>
+        /// <param name="userQueueRegister"></param>
+        /// <returns></returns>
+        public async Task<IResponse<bool>> SendDeletionConfirmationEmailAsync(UserQueueRegister userQueueRegister)
         {
-            if (type.Equals("Delete"))
-            {
-                return string.Format(@"<!DOCTYPE html>
-<html>
-  <head>
-    <meta charset=""utf-8"" />
-    <title>Record Deletion Confirmation</title>
-  </head>
-  <body style=""font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 460px;"">
-    <p>Hello {0},</p>
-    <p>I would like to confirm that your account on the LFauth Dev Hub website has been successfully deleted.</p>
-    <p>Your account has been completely removed, including all data related to interactions with the site's features.</p>
-    <p>
-      To register again, please visit our website and sign up for a new account.
-    </p>
-    <p>
-      Sincerely,<br /><br /><br />
-      Luan Faith | LFauth Dev Hub
-    </p>
-  </body>
-</html>
+            string tokenData = EncriptorAndDecriptor.TokenGenAndEncprtor(userQueueRegister.Email, userQueueRegister.Name!, _protector);
+            string body = BuildEmailTemplate(userQueueRegister.Name!, _linkConfirmation, "pt");
 
-", name);
+            _linkConfirmation = string.Format(_linkConfirmation, tokenData);
+
+            try
+            {
+                bool response = await SendEmailAsync(userQueueRegister.Email, "LFauth Dev Hub | Account Deletion Confirmation", body);
+
+                return new ResponseOk<bool>(response);
+            }
+            catch (Exception ex)
+            {
+                return new ResponseError<bool>(new ResponseModel { Code = "ES503", Message = $"{ex.Message} | {ex.InnerException?.Message}" });
+            }
+        }
+
+        /// <summary>
+        /// Send email using SMTP client
+        /// </summary>
+        /// <returns></returns>
+        private async Task<bool> SendEmailAsync(string to, string subject, string body)
+        {
+            
+            using (var mensagem = new MailMessage(_fromAddress, to, subject, body))
+            {
+                var smtpClient = new SmtpClient(_host, 587)
+                {
+                    Credentials = new NetworkCredential(_sender, _phaseKey),
+                    EnableSsl = true
+                };
+
+                mensagem.IsBodyHtml = true;
+                await smtpClient.SendMailAsync(mensagem);
+
+                return true;
+            }
+        }
+
+        private string BuildEmailTemplate(string nome, string link, string idioma)
+        {
+            string titulo, saudacao, mensagem, textoBotao, instrucaoFallback, aviso;
+
+            if (idioma.ToLower() == "pt")
+            {
+                titulo = "Confirmação de Cadastro";
+                saudacao = $"Olá {nome},";
+                mensagem = "Seja bem-vindo ao <strong>LFauth Dev Hub</strong>! Estamos felizes em ter você conosco.<br>Para concluir seu cadastro e ativar sua conta, clique no botão abaixo:";
+                textoBotao = "Confirmar Cadastro";
+                instrucaoFallback = "Se o botão acima não funcionar, copie e cole o link abaixo no seu navegador:";
+                aviso = "Se você não solicitou este cadastro, por favor ignore este e-mail.";
             }
             else
             {
-                return string.Format(@"<!DOCTYPE html>
-<html>
+                titulo = "Registration Confirmation";
+                saudacao = $"Hello {nome},";
+                mensagem = "Welcome to <strong>LFauth Dev Hub</strong>! We are thrilled to have you with us.<br>To complete your registration and activate your account, please click the button below:";
+                textoBotao = "Confirm Registration";
+                instrucaoFallback = "If the button above does not work, copy and paste the following link into your browser:";
+                aviso = "If you did not initiate this registration, please disregard this email.";
+            }
+
+            return $@"
+<!DOCTYPE html>
+<html lang=""{idioma}"">
   <head>
-    <meta charset=""utf-8"" />
-    <title>Registration Confirmation</title>
+    <meta charset=""UTF-8"" />
+    <title>{titulo}</title>
+    <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
   </head>
-  <body style=""font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 460px;"">
-    <p>Hello {0},</p>
-    <p>Welcome to <strong>LFauth Dev Hub</strong>! We are thrilled to have you with us.</p>
-    <p>To complete your registration and activate your account, please click the button below:</p>
-    <br>
-    <p style=""text-align: center;"">
-      <a href=""{1}"" style=""background-color: #4CAF50; color: #fff; padding: 12px 20px; text-decoration: none; border-radius: 4px; font-weight: bold;"">Confirm Registration</a>
-    </p>
-    <br>
-    <p>If the button above does not work, copy and paste the following link into your browser:</p>
-    <p><a href=""{1}"">{1}</a></p>
-    <p>If you did not initiate this registration, please disregard this email.</p>
-    <p>Sincerely,<br /><br /><br />
-       Luan Faith | LFauth Dev Hub
-    </p>
+  <body style=""margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f4f4f4;"">
+    <table align=""center"" border=""0"" cellpadding=""0"" cellspacing=""0"" width=""100%"">
+      <tr>
+        <td align=""center"">
+          <table border=""0"" cellpadding=""20"" cellspacing=""0"" width=""600"" style=""background-color: #ffffff; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.1);"">
+            <tr>
+              <td align=""center"" style=""padding-bottom: 0;"">
+                <h2 style=""margin: 0; color: #333;"">LFauth Dev Hub</h2>
+              </td>
+            </tr>
+            <tr>
+              <td style=""padding-top: 0;"">
+                <p style=""font-size: 16px; color: #333;"">{saudacao}</p>
+                <p style=""font-size: 16px; color: #333;"">{mensagem}</p>
+                <p style=""text-align: center; margin: 30px 0;"">
+                  <a href=""{link}"" style=""background-color: #4CAF50; color: white; padding: 14px 24px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"">{textoBotao}</a>
+                </p>
+                <p style=""font-size: 14px; color: #555;"">{instrucaoFallback}</p>
+                <p style=""word-break: break-all;""><a href=""{link}"" style=""color: #3366cc;"">{link}</a></p>
+                <p style=""font-size: 14px; color: #777; margin-top: 40px;"">{aviso}</p>
+                <p style=""font-size: 14px; color: #555;"">Sincerely,<br><strong>Luan Faith | LFauth Dev Hub</strong></p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   </body>
 </html>
-
-", name, _linkConfirmation);
-            }
+";
         }
     }
 }

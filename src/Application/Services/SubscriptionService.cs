@@ -42,7 +42,7 @@ namespace Application.Services
 
                 sublogEmail.StartCronometer();
 
-                var response = await _emailSender.SendConfirmationEmailAsync(userQueueRegister, "Register");
+                var response = await _emailSender.SendSubscriptionConfirmationEmailAsync(userQueueRegister);
                 
                 sublogEmail.StopCronometer();
 

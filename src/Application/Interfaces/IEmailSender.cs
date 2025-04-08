@@ -5,6 +5,7 @@ namespace Application.Interfaces
 {
     public interface IEmailSender
     {
-        public Task<IResponse<bool>> SendConfirmationEmailAsync(UserQueueRegister userQueueRegister, string type);
+        public Task<IResponse<bool>> SendSubscriptionConfirmationEmailAsync(UserQueueRegister userQueueRegister);
+        public Task<IResponse<bool>> SendDeletionConfirmationEmailAsync(UserQueueRegister userQueueRegister);
     }
 }

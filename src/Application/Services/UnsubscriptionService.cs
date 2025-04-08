@@ -41,7 +41,7 @@ namespace Application.Services
 
                 sublogEmail.StartCronometer();
 
-                var response = await _emailSender.SendConfirmationEmailAsync(userQueueRegister, "Delete");
+                var response = await _emailSender.SendDeletionConfirmationEmailAsync(userQueueRegister);
 
                 sublogEmail.StopCronometer();
 
